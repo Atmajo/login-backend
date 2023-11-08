@@ -3,10 +3,37 @@ import dbConnect from "./db/dbConnect.js";
 import bcrypt from "bcrypt";
 import User from "./model/User.js";
 import jwt from "jsonwebtoken";
+import auth from "./auth.js";
 
 const app = express();
+const router = express.Router();
 
 dbConnect();
+app.use(express.json());
+
+// Curb Cores Error by adding a header here
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+  );
+  next();
+});
+
+// free endpoint
+app.get("/free-endpoint", auth, (request, response) => {
+  response.json({ message: "You are free to access me anytime" });
+});
+
+// authentication endpoint
+app.get("/auth-endpoint", auth, (request, response) => {
+  response.json({ message: "You are authorized to access me" });
+});
 
 app.post("/login", (request, response) => {
   User.findOne({ email: request.body.email })
@@ -55,28 +82,26 @@ app.post("/login", (request, response) => {
     });
 });
 
-app.post("/register", (request, response) => {
-  bcrypt.hash(request.body.password, 10).then((hashedPassword) => {
-    const user = new User({
-      email: request.body.email,
+app.post("/register", async (request, response) => {
+  try {
+    const { email, ...data } = request.body;
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return response.status(404).json({ message: "USER_ALREADY_EXISTS" });
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const newUser = new User({
+      ...data,
+      email,
       password: hashedPassword,
     });
-
-    user
-      .save()
-      .then((result) => {
-        response.status(201).send({
-          message: "User Created Successfully",
-          result,
-        });
-      })
-      .catch((error) => {
-        response.status(500).send({
-          message: "Error creating user",
-          error,
-        });
-      });
-  });
+    await newUser.save();
+    response.status(200).json({ message: "SIGNUP_SUCCESS" });
+  } catch (err) {
+    response.status(500).json({ message: err });
+  }
 });
 
 app.listen(3020, () => {
