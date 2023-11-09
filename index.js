@@ -51,6 +51,7 @@ app.post("/login", (request, response) => {
           //   return success response
           response.status(200).send({
             message: "Login Successful",
+            name: user.name,
             email: user.email,
             token,
           });
@@ -73,7 +74,7 @@ app.post("/login", (request, response) => {
 
 app.post("/register", async (request, response) => {
   try {
-    const { email, ...data } = request.body;
+    const { name, email, ...data } = request.body;
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -83,9 +84,11 @@ app.post("/register", async (request, response) => {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const newUser = new User({
       ...data,
+      name,
       email,
       password: hashedPassword,
     });
+    console.log(name);
     await newUser.save();
     response.status(200).json({ message: "SIGNUP_SUCCESS" });
   } catch (err) {
